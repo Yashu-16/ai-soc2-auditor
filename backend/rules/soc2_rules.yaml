@@ -1,0 +1,116 @@
+# SOC2 Rule Engine — Rule Definitions
+#
+# Each rule defines:
+#   id              - unique rule identifier
+#   control_id      - which seeded Control this rule maps to
+#   description     - human-readable summary of what's being checked
+#   source_type      - which normalized event source this rule scans
+#   condition        - a small DSL evaluated against each event's raw_payload
+#   severity_floor / severity_ceiling - bounds the AI engine must stay within
+#
+# condition syntax: "<json_path> <operator> <value>"
+# Supported operators: eq, neq, contains, in, gt, lt, is_true, is_false, is_empty
+# json_path uses dot notation into raw_payload, e.g. "permissions" or "userIdentity.arn"
+
+rules:
+
+  # --- Security ---
+  - id: RULE-SEC-001
+    control_id: CC6.6
+    description: "User login without MFA enabled"
+    source_type: iam_log
+    condition: "mfa_enabled is_false"
+    severity_floor: medium
+    severity_ceiling: high
+
+  - id: RULE-SEC-002
+    control_id: CC6.3
+    description: "IAM principal granted wildcard/admin-equivalent permissions"
+    source_type: iam_log
+    condition: "permissions ends_with_any :*"
+    severity_floor: high
+    severity_ceiling: critical
+
+  - id: RULE-SEC-003
+    control_id: CC6.1
+    description: "S3 bucket configured with public-read ACL"
+    source_type: cloud_config
+    condition: "attributes.acl eq public-read"
+    severity_floor: high
+    severity_ceiling: critical
+
+  - id: RULE-SEC-004
+    control_id: CC6.7
+    description: "Root account used directly for API activity"
+    source_type: cloudtrail_log
+    condition: "userIdentity.arn contains root"
+    severity_floor: high
+    severity_ceiling: critical
+
+  - id: RULE-SEC-005
+    control_id: CC6.8
+    description: "Security group or firewall rule open to 0.0.0.0/0"
+    source_type: cloud_config
+    condition: "attributes.ingress_cidr eq 0.0.0.0/0"
+    severity_floor: medium
+    severity_ceiling: high
+
+  # --- Availability ---
+  - id: RULE-AVAIL-001
+    control_id: A1.2
+    description: "Production resource has no backup/snapshot configuration"
+    source_type: cloud_config
+    condition: "attributes.backup_enabled is_false"
+    severity_floor: medium
+    severity_ceiling: high
+
+  - id: RULE-AVAIL-002
+    control_id: A1.1
+    description: "No monitoring/alerting configured on critical resource"
+    source_type: cloud_config
+    condition: "attributes.monitoring_enabled is_false"
+    severity_floor: low
+    severity_ceiling: medium
+
+  # --- Confidentiality ---
+  - id: RULE-CONF-001
+    control_id: C1.2
+    description: "Data store configured without encryption at rest"
+    source_type: cloud_config
+    condition: "attributes.encryption eq none"
+    severity_floor: high
+    severity_ceiling: critical
+
+  - id: RULE-CONF-002
+    control_id: C1.2
+    description: "Hardcoded secret or credential pattern detected in committed code"
+    source_type: github_activity
+    condition: "secret_detected is_true"
+    severity_floor: high
+    severity_ceiling: critical
+
+  # --- Processing Integrity ---
+  - id: RULE-PI-001
+    control_id: PI1.2
+    description: "Direct push to main/production branch without PR review"
+    source_type: github_activity
+    condition: "pr_reviewed is_false"
+    severity_floor: medium
+    severity_ceiling: high
+
+  - id: RULE-PI-002
+    control_id: PI1.2
+    description: "Branch protection not enabled on main/production branch"
+    source_type: github_activity
+    condition: "branch_protection_enabled is_false"
+    severity_floor: medium
+    severity_ceiling: high
+
+  # --- Privacy ---
+  - id: RULE-PRIV-001
+    control_id: P6.1
+    description: "Personal information (PII) field present in logs without masking"
+    source_type: cloudtrail_log
+    condition: "requestParameters.contains_pii is_true"
+    severity_floor: medium
+    severity_ceiling: high

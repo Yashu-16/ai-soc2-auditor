@@ -1,0 +1,18 @@
+[
+    {
+      "user": "jane.doe@company.com",
+      "event_type": "login",
+      "mfa_enabled": false,
+      "permissions": ["s3:*", "iam:*"],
+      "role": "admin",
+      "timestamp": "2026-06-01T10:00:00Z"
+    },
+    {
+      "user": "john.smith@company.com",
+      "event_type": "login",
+      "mfa_enabled": true,
+      "permissions": ["s3:GetObject"],
+      "role": "developer",
+      "timestamp": "2026-06-01T10:05:00Z"
+    }
+  ]
