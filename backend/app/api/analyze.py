@@ -108,6 +108,8 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
             {
                 "id": f.id,
                 "control_id": f.control_id,
+                "control_title": controls_by_id[f.control_id].title,
+                "trust_principle": controls_by_id[f.control_id].trust_principle.value,
                 "rule_id": f.rule_id,
                 "risk_level": f.risk_level.value,
                 "evidence_event_ids": f.evidence_event_ids,

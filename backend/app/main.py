@@ -8,7 +8,7 @@ Run with:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import upload, analyze
+from app.api import upload, analyze, report
 
 app = FastAPI(
     title="AI SOC2 Auditor",
@@ -30,6 +30,7 @@ app.add_middleware(
 
 app.include_router(upload.router, tags=["ingestion"])
 app.include_router(analyze.router, tags=["analysis"])
+app.include_router(report.router, tags=["reporting"])
 
 
 @app.get("/health")

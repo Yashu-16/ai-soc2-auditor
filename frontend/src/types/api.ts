@@ -31,6 +31,8 @@ export interface ScoreBreakdown {
 export interface FindingResponse {
   id: string;
   control_id: string;
+  control_title: string;
+  trust_principle: string;
   rule_id: string;
   risk_level: RiskLevel;
   evidence_event_ids: string[];
@@ -41,6 +43,7 @@ export interface FindingResponse {
 
 export interface AnalysisResponse {
   audit_run_id: string;
+  company_name: string;
   findings_count: number;
   ai_summary: string | null;
   score: ScoreBreakdown;
