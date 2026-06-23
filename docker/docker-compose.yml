@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: soc2_auditor_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: soc2_admin
+      POSTGRES_PASSWORD: soc2_dev_password
+      POSTGRES_DB: soc2_auditor
+    ports:
+      - "5432:5432"
+    volumes:
+      - soc2_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soc2_admin -d soc2_auditor"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  soc2_pg_data:
