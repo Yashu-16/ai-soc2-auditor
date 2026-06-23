@@ -1,0 +1,33 @@
+[
+    {
+      "eventTime": "2026-06-01T09:12:00Z",
+      "eventName": "ConsoleLogin",
+      "userIdentity": {"arn": "arn:aws:iam::123456789012:user/jane.doe"},
+      "requestParameters": {},
+      "sourceIPAddress": "203.0.113.10"
+    },
+    {
+      "eventTime": "2026-06-01T11:47:00Z",
+      "eventName": "DeleteBucket",
+      "userIdentity": {"arn": "arn:aws:iam::123456789012:root"},
+      "requestParameters": {"bucketName": "legacy-backups"},
+      "sourceIPAddress": "198.51.100.22"
+    },
+    {
+      "eventTime": "2026-06-01T13:30:00Z",
+      "eventName": "GetObject",
+      "userIdentity": {"arn": "arn:aws:iam::123456789012:user/support.agent"},
+      "requestParameters": {
+        "bucketName": "customer-support-tickets",
+        "contains_pii": true
+      },
+      "sourceIPAddress": "203.0.113.45"
+    },
+    {
+      "eventTime": "2026-06-01T15:05:00Z",
+      "eventName": "DescribeInstances",
+      "userIdentity": {"arn": "arn:aws:iam::123456789012:user/john.smith"},
+      "requestParameters": {"instanceId": "i-0abcd1234efgh5678"},
+      "sourceIPAddress": "203.0.113.10"
+    }
+  ]

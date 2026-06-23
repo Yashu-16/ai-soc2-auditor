@@ -1,0 +1,32 @@
+[
+    {
+      "event": "push",
+      "actor": "jane.doe",
+      "branch": "main",
+      "commit_sha": "a1b2c3d",
+      "pr_reviewed": false,
+      "branch_protection_enabled": false,
+      "secret_detected": false,
+      "timestamp": "2026-06-01T14:00:00Z"
+    },
+    {
+      "event": "push",
+      "actor": "john.smith",
+      "branch": "feature/billing-refactor",
+      "commit_sha": "e4f5g6h",
+      "pr_reviewed": true,
+      "branch_protection_enabled": true,
+      "secret_detected": false,
+      "timestamp": "2026-06-01T14:30:00Z"
+    },
+    {
+      "event": "push",
+      "actor": "contractor.dev",
+      "branch": "main",
+      "commit_sha": "i7j8k9l",
+      "pr_reviewed": true,
+      "branch_protection_enabled": true,
+      "secret_detected": true,
+      "timestamp": "2026-06-01T16:10:00Z"
+    }
+  ]

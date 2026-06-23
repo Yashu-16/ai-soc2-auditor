@@ -1,0 +1,41 @@
+[
+    {
+      "resource_type": "aws_s3_bucket",
+      "resource_id": "company-public-assets",
+      "attributes": {
+        "acl": "public-read",
+        "encryption": "none",
+        "versioning": false,
+        "backup_enabled": false,
+        "monitoring_enabled": false
+      }
+    },
+    {
+      "resource_type": "aws_s3_bucket",
+      "resource_id": "company-customer-data",
+      "attributes": {
+        "acl": "private",
+        "encryption": "AES256",
+        "versioning": true,
+        "backup_enabled": true,
+        "monitoring_enabled": true
+      }
+    },
+    {
+      "resource_type": "aws_security_group",
+      "resource_id": "sg-web-prod",
+      "attributes": {
+        "ingress_cidr": "0.0.0.0/0",
+        "ingress_port": 22
+      }
+    },
+    {
+      "resource_type": "aws_db_instance",
+      "resource_id": "prod-postgres-primary",
+      "attributes": {
+        "encryption": "none",
+        "backup_enabled": true,
+        "monitoring_enabled": true
+      }
+    }
+  ]
