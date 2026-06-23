@@ -2,11 +2,12 @@
 /analyze-compliance endpoint.
 
 Runs the deterministic rule engine against all NormalizedEvent rows for
-a given audit run, persists the results as Finding rows, and returns
-them. AI enrichment (explanation/remediation/confidence, and any
-AI-assisted severity adjustment within the rule's floor/ceiling bounds)
-happens in a later step (Phase 4) — this endpoint intentionally works
-correctly without it, defaulting risk_level to each rule's severity_floor.
+a given audit run, then enriches each resulting finding via the AI
+engine (explanation, remediation, confidence, and a severity-bounded
+risk_level), and persists the results as Finding rows.
+
+If the AI engine fails entirely, findings still persist correctly with
+templated fallback explanations rather than the request failing.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.models import AuditRun, NormalizedEvent, RawLog, Finding, Control
 from app.services.rule_engine.engine import run_rule_engine
+from app.services.ai_engine.orchestrator import enrich_findings
 
 router = APIRouter()
 
@@ -49,6 +51,9 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
     # Clear any prior findings for this run (re-analysis should be idempotent)
     db.query(Finding).filter(Finding.audit_run_id == audit_run_id).delete()
 
+    enriched_findings, overall_summary = enrich_findings(candidate_findings)
+    enriched_by_key = {(ef.control_id, ef.rule_id): ef for ef in enriched_findings}
+
     created_findings = []
     for cf in candidate_findings:
         control = db.query(Control).filter(Control.id == cf.control_id).first()
@@ -57,12 +62,17 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
             # but skip defensively rather than crash the whole analysis.
             continue
 
+        ef = enriched_by_key.get((cf.control_id, cf.rule_id))
+
         finding = Finding(
             audit_run_id=audit_run_id,
             control_id=cf.control_id,
             rule_id=cf.rule_id,
-            risk_level=cf.severity_floor,  # AI engine may raise this in Phase 4
+            risk_level=ef.risk_level if ef else cf.severity_floor,
             evidence_event_ids=cf.evidence_event_ids,
+            ai_explanation=ef.explanation if ef else None,
+            ai_remediation=ef.remediation if ef else None,
+            ai_confidence=ef.confidence if ef else None,
         )
         db.add(finding)
         created_findings.append(finding)
@@ -73,6 +83,7 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
     return {
         "audit_run_id": audit_run_id,
         "findings_count": len(created_findings),
+        "ai_summary": overall_summary,
         "findings": [
             {
                 "id": f.id,
@@ -80,6 +91,9 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
                 "rule_id": f.rule_id,
                 "risk_level": f.risk_level.value,
                 "evidence_event_ids": f.evidence_event_ids,
+                "ai_explanation": f.ai_explanation,
+                "ai_remediation": f.ai_remediation,
+                "ai_confidence": f.ai_confidence,
             }
             for f in created_findings
         ],
