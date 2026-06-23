@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AnalysisResponse } from "./types/api";
 import type { UploadFileEntry } from "./api/client";
-import { uploadLogs, analyzeCompliance, ApiError } from "./api/client";
+import { uploadLogs, analyzeCompliance, downloadAuditReport, ApiError } from "./api/client";
 import { LogUploader } from "./components/LogUploader";
 import { ScoreGauge } from "./components/ScoreGauge";
 import { PrincipleBreakdown } from "./components/PrincipleBreakdown";
@@ -14,6 +14,7 @@ function App() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleSubmit = async (entries: UploadFileEntry[], companyName: string) => {
     setErrorMsg(null);
@@ -29,6 +30,18 @@ function App() {
     } catch (err) {
       setPhase("error");
       setErrorMsg(err instanceof ApiError ? err.message : "Unexpected error occurred.");
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    if (!result) return;
+    setIsDownloading(true);
+    try {
+      await downloadAuditReport(result);
+    } catch (err) {
+      setErrorMsg(err instanceof ApiError ? err.message : "Failed to generate report.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -110,25 +123,44 @@ function App() {
               ))}
             </div>
 
-            <button
-              onClick={() => {
-                setPhase("idle");
-                setResult(null);
-              }}
-              style={{
-                alignSelf: "flex-start",
-                background: "none",
-                border: "1px solid var(--border-hairline)",
-                color: "var(--text-secondary)",
-                borderRadius: "4px",
-                padding: "0.5rem 1rem",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.78rem",
-                cursor: "pointer",
-              }}
-            >
-              ← Run another audit
-            </button>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                onClick={handleDownloadReport}
+                disabled={isDownloading}
+                style={{
+                  background: isDownloading ? "var(--border-hairline)" : "var(--ai-accent)",
+                  color: isDownloading ? "var(--text-tertiary)" : "#0b0e14",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "0.6rem 1.1rem",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  cursor: isDownloading ? "not-allowed" : "pointer",
+                }}
+              >
+                {isDownloading ? "GENERATING…" : "↓ Generate Audit Report"}
+              </button>
+
+              <button
+                onClick={() => {
+                  setPhase("idle");
+                  setResult(null);
+                }}
+                style={{
+                  background: "none",
+                  border: "1px solid var(--border-hairline)",
+                  color: "var(--text-secondary)",
+                  borderRadius: "4px",
+                  padding: "0.6rem 1.1rem",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.78rem",
+                  cursor: "pointer",
+                }}
+              >
+                ← Run another audit
+              </button>
+            </div>
           </div>
         )}
       </div>

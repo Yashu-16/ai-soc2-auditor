@@ -54,3 +54,34 @@ export async function analyzeCompliance(
   });
   return handleResponse<AnalysisResponse>(res);
 }
+
+export async function downloadAuditReport(
+  analysis: AnalysisResponse
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/audit-report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(analysis),
+  });
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? detail;
+    } catch {
+      // not JSON
+    }
+    throw new ApiError(detail, res.status);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `soc2-audit-report-${analysis.audit_run_id.slice(0, 8)}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

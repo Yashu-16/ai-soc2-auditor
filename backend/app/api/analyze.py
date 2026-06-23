@@ -101,6 +101,7 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
 
     return {
         "audit_run_id": audit_run_id,
+        "company_name": audit_run.company_name,
         "findings_count": len(created_findings),
         "ai_summary": overall_summary,
         "score": score_fields,
