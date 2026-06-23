@@ -1,122 +1,180 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from "react";
+import type { AnalysisResponse } from "./types/api";
+import type { UploadFileEntry } from "./api/client";
+import { uploadLogs, analyzeCompliance, ApiError } from "./api/client";
+import { LogUploader } from "./components/LogUploader";
+import { ScoreGauge } from "./components/ScoreGauge";
+import { PrincipleBreakdown } from "./components/PrincipleBreakdown";
+import { AiSummaryPanel } from "./components/AiSummaryPanel";
+import { FindingRow } from "./components/FindingRow";
+
+type Phase = "idle" | "uploading" | "analyzing" | "done" | "error";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [result, setResult] = useState<AnalysisResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSubmit = async (entries: UploadFileEntry[], companyName: string) => {
+    setErrorMsg(null);
+    try {
+      setPhase("uploading");
+      const uploadRes = await uploadLogs(entries, companyName);
+
+      setPhase("analyzing");
+      const analysis = await analyzeCompliance(uploadRes.audit_run_id);
+
+      setResult(analysis);
+      setPhase("done");
+    } catch (err) {
+      setPhase("error");
+      setErrorMsg(err instanceof ApiError ? err.message : "Unexpected error occurred.");
+    }
+  };
+
+  const sortedFindings = result
+    ? [...result.findings].sort((a, b) => riskRank(b.risk_level) - riskRank(a.risk_level))
+    : [];
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div style={{ minHeight: "100vh", padding: "2.5rem 2rem" }}>
+      <div style={{ maxWidth: "880px", margin: "0 auto" }}>
+        <Masthead />
 
-      <div className="ticks"></div>
+        {phase !== "done" && (
+          <div style={{ marginTop: "2rem" }}>
+            <LogUploader onSubmit={handleSubmit} isLoading={phase === "uploading" || phase === "analyzing"} />
+            {phase === "analyzing" && (
+              <p style={statusTextStyle}>Running rule engine and AI enrichment…</p>
+            )}
+            {phase === "error" && errorMsg && (
+              <p style={{ ...statusTextStyle, color: "var(--risk-critical)" }}>{errorMsg}</p>
+            )}
+          </div>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {phase === "done" && result && (
+          <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "2.5rem",
+                background: "var(--bg-panel)",
+                border: "1px solid var(--border-hairline)",
+                borderRadius: "6px",
+                padding: "1.75rem",
+                alignItems: "center",
+              }}
+            >
+              <ScoreGauge score={result.score.overall_score} isReady={result.score.is_soc2_ready} />
+              <div style={{ flex: 1 }}>
+                <PrincipleBreakdown score={result.score} />
+              </div>
+            </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            {result.score.blocking_issues_count > 0 && (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.8rem",
+                  color: "var(--risk-critical)",
+                  background: "rgba(232, 72, 60, 0.08)",
+                  border: "1px solid var(--risk-critical)",
+                  borderRadius: "4px",
+                  padding: "0.7rem 1rem",
+                }}
+              >
+                {result.score.blocking_issues_count} blocking critical finding
+                {result.score.blocking_issues_count > 1 ? "s" : ""} preventing SOC2 readiness,
+                regardless of overall score.
+              </div>
+            )}
+
+            <AiSummaryPanel summary={result.ai_summary} />
+
+            <div>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--text-secondary)",
+                  marginBottom: "0.75rem",
+                }}
+              >
+                Findings ({result.findings_count})
+              </div>
+              {sortedFindings.map((f) => (
+                <FindingRow key={f.id} finding={f} />
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setPhase("idle");
+                setResult(null);
+              }}
+              style={{
+                alignSelf: "flex-start",
+                background: "none",
+                border: "1px solid var(--border-hairline)",
+                color: "var(--text-secondary)",
+                borderRadius: "4px",
+                padding: "0.5rem 1rem",
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.78rem",
+                cursor: "pointer",
+              }}
+            >
+              ← Run another audit
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-export default App
+function Masthead() {
+  return (
+    <div style={{ borderBottom: "1px solid var(--border-hairline)", paddingBottom: "1.25rem" }}>
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "0.7rem",
+          letterSpacing: "0.1em",
+          color: "var(--text-tertiary)",
+          textTransform: "uppercase",
+        }}
+      >
+        AI SOC2 Auditor
+      </div>
+      <h1
+        style={{
+          margin: "0.35rem 0 0",
+          fontFamily: "var(--font-sans)",
+          fontSize: "1.6rem",
+          fontWeight: 700,
+          color: "var(--text-primary)",
+        }}
+      >
+        Compliance Audit Console
+      </h1>
+    </div>
+  );
+}
+
+const statusTextStyle: React.CSSProperties = {
+  marginTop: "1rem",
+  fontFamily: "var(--font-mono)",
+  fontSize: "0.8rem",
+  color: "var(--text-secondary)",
+};
+
+function riskRank(level: string): number {
+  const order: Record<string, number> = { critical: 3, high: 2, medium: 1, low: 0 };
+  return order[level] ?? 0;
+}
+
+export default App;
