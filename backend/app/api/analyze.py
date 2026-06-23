@@ -2,9 +2,10 @@
 /analyze-compliance endpoint.
 
 Runs the deterministic rule engine against all NormalizedEvent rows for
-a given audit run, then enriches each resulting finding via the AI
-engine (explanation, remediation, confidence, and a severity-bounded
-risk_level), and persists the results as Finding rows.
+a given audit run, enriches each resulting finding via the AI engine
+(explanation, remediation, confidence, severity-bounded risk_level),
+persists the results as Finding rows, computes the weighted SOC2
+compliance score, and persists it as a ScoreSnapshot.
 
 If the AI engine fails entirely, findings still persist correctly with
 templated fallback explanations rather than the request failing.
@@ -14,9 +15,17 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models.models import AuditRun, NormalizedEvent, RawLog, Finding, Control
+from app.models.models import (
+    AuditRun,
+    NormalizedEvent,
+    RawLog,
+    Finding,
+    Control,
+    ScoreSnapshot,
+)
 from app.services.rule_engine.engine import run_rule_engine
 from app.services.ai_engine.orchestrator import enrich_findings
+from app.services.scoring.engine import compute_score
 
 router = APIRouter()
 
@@ -48,15 +57,19 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
 
     candidate_findings = run_rule_engine(event_dicts)
 
-    # Clear any prior findings for this run (re-analysis should be idempotent)
+    # Clear any prior findings + score for this run (re-analysis is idempotent)
     db.query(Finding).filter(Finding.audit_run_id == audit_run_id).delete()
+    db.query(ScoreSnapshot).filter(ScoreSnapshot.audit_run_id == audit_run_id).delete()
 
     enriched_findings, overall_summary = enrich_findings(candidate_findings)
     enriched_by_key = {(ef.control_id, ef.rule_id): ef for ef in enriched_findings}
 
+    all_controls = db.query(Control).all()
+    controls_by_id = {c.id: c for c in all_controls}
+
     created_findings = []
     for cf in candidate_findings:
-        control = db.query(Control).filter(Control.id == cf.control_id).first()
+        control = controls_by_id.get(cf.control_id)
         if not control:
             # Should never happen if rules.yaml control_ids match seeded controls,
             # but skip defensively rather than crash the whole analysis.
@@ -77,13 +90,20 @@ def analyze_compliance(audit_run_id: str, db: Session = Depends(get_db)):
         db.add(finding)
         created_findings.append(finding)
 
-    audit_run.status = "analyzed"
+    db.flush()  # ensure created_findings have risk_level set as Enum for scoring
+
+    score_fields = compute_score(created_findings, controls_by_id)
+    score_snapshot = ScoreSnapshot(audit_run_id=audit_run_id, **score_fields)
+    db.add(score_snapshot)
+
+    audit_run.status = "scored"
     db.commit()
 
     return {
         "audit_run_id": audit_run_id,
         "findings_count": len(created_findings),
         "ai_summary": overall_summary,
+        "score": score_fields,
         "findings": [
             {
                 "id": f.id,
